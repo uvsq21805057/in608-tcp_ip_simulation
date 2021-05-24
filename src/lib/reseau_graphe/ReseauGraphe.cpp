@@ -3,6 +3,7 @@
  * @brief   Vous trouverez ici toutes les fonctions implementees pour la classe ReseauGraphe.
  * @author  Florian CAMBRESY
  * @author  Gabriel Dos Santos
+ * @author  Mickael Le Denmat
  * @date    Mai 2021
  **/
 
@@ -15,18 +16,35 @@
 std::vector<Machine*> ReseauGraphe::m_Machines;
 std::vector<Liaison> ReseauGraphe::m_Liaisons;
 
+/**
+ * @brief Constructeur de la classe ReseauGraphe.
+ *
+ **/
 ReseauGraphe::ReseauGraphe() {
     m_Machines.clear();
     m_Liaisons.clear();
 }
 
+/**
+ * @brief Destructeur de la classe ReseauGraphe.
+ *
+ **/
 ReseauGraphe::~ReseauGraphe() {}
 
-// Getters & setters
+/**
+ * @brief Setter pour l'argument nom.
+ *
+ * @return void.
+ **/
 void ReseauGraphe::setNom(const std::string nom) {
     m_Nom = nom;
 }
 
+/**
+ * @brief Getter pour l'argument m_nom.
+ *
+ * @return std::string.
+ **/
 const std::string& ReseauGraphe::getNom() const {
     return m_Nom;
 }
@@ -77,6 +95,7 @@ Machine* ReseauGraphe::getMachine(const IPv4& ip) {
     exit(EXIT_FAILURE);
 }
 
+
 Machine* ReseauGraphe::getMachine(const uint16_t& id) {
     if (id > m_Machines.size()) {
         std::cout << "ERREUR : Dans le fichier 'ReseauGraphe.cpp'. "
@@ -101,10 +120,20 @@ IPv4 ReseauGraphe::getSousReseau(const IPv4& ipMachine) {
     exit(EXIT_FAILURE);
 }
 
+/**
+ * @brief Getter pour l'argument m_Machines.
+ *
+ * @return std::vector<Machine*>.
+ **/
 const std::vector<Machine*>& ReseauGraphe::getMachines() const {
     return m_Machines;
 }
 
+/**
+ * @brief Getter pour l'argument m_Liaisons.
+ *
+ * @return std::vector<Liaison>.
+ **/
 const std::vector<Liaison>& ReseauGraphe::getLiaisons() const {
     return m_Liaisons;
 }
@@ -123,15 +152,52 @@ const std::vector<uint16_t> ReseauGraphe::getIdsRouteurs() {
     return idsRouteurs;
 }
 
-// Methodes
-bool ReseauGraphe::estConnexe() {
-    return false;
+
+const std::map<uint32_t, double> ReseauGraphe::getTempsPaquet() const {
+    //
+    std::map<uint32_t, double> tempsPaquet;
+
+    //
+    for (Machine* m : m_Machines) {
+        auto tempsTraitementCopie = m->getTempsTraitementPaquets();
+        for (auto elt : tempsTraitementCopie) {
+            auto trouve = tempsPaquet.find(elt.first);
+            if (trouve != tempsPaquet.end()) {
+                tempsPaquet[elt.first] += elt.second;
+            } else {
+                tempsPaquet[elt.first] = elt.second;
+            }
+        }
+    }
+
+    //
+    return tempsPaquet;
 }
 
+// Methodes
+/**
+ * @brief Indique si un graphe est connexe ou non.
+ *
+ * @return bool.
+ **/
+bool ReseauGraphe::estConnexe() {
+    return true;
+}
+
+/**
+ * @brief Ajoute une machine dans le tableau de machines.
+ *
+ * @return void.
+ **/
 void ReseauGraphe::ajouter(Machine* m) {
     m_Machines.emplace_back(m);
 }
 
+/**
+ * @brief Ajoute une liaison dans le tableau de liaisons.
+ *
+ * @return void.
+ **/
 void ReseauGraphe::ajouter(Liaison l) {
     m_Liaisons.emplace_back(l);
 }
@@ -244,24 +310,37 @@ std::vector<Liaison*> ReseauGraphe::routageDynamique(const uint16_t& depart,
 void ReseauGraphe::lancerOSPF() {
     size_t c1 = 0, c2 = 0;
     for (Machine* machine: m_Machines) {
+        std::cout << "log #0 : avant for machine\n";
         Routeur* routeur = dynamic_cast<Routeur*>(machine);
 
         if (routeur) {
+            std::cout << "\tlog #1 : avant if routeur\n";
             std::vector<Machine*> voisins = routeur->getVoisins();
             c1++; std::cout << "Router #" << c1 << std::endl;
 
             // #pragma omp parallel for
             for (Machine* voisin: voisins) {
+                std::cout << "\t\tlog #2 : avant for voisine\n";
                 Routeur* routeurVoisin = dynamic_cast<Routeur*>(voisin);
 
                 if (routeurVoisin) {
                     c2++; std::cout << "Neighboor Router #" << c2 << std::endl;
                     PaquetOSPF* hello = new PaquetHello(routeurVoisin->getIdRouteur());
                     hello->setEntete(Hello, routeur->getIdRouteur());
+                    std::cout << "\t\t\tlog #3.5 : avant envoyerOSPF\n"
+                        << "envoyerOSPF(" << routeurVoisin->getIp()
+                        << ", hello)\n"
+                        << "############################################\n";
                     routeur->envoyerOSPF(routeurVoisin, hello);
+                    std::cout << "\t\t\tlog #3.5 : apres envoyerOSPF\n"
+                        << "############################################\n";
+                    std::cout << "\t\t\tlog #3 : apres if voisin\n";
                 }
+                std::cout << "\t\tlog #2 : apres for voisine\n";
             }
+            std::cout << "\tlog #1 : apres if routeur\n";
         }
+        std::cout << "log #0 : apres for machine\n";
     }
 }
 
