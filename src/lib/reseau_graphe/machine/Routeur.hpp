@@ -58,9 +58,10 @@ class Routeur : public Machine {
         // Getters
         uint16_t getNbRouteur();
         uint16_t getIdRouteur();
+        inline void remettreIdAZero() { m_IdRouteur = 0; }
 
         void setTableRoutage(Routeur* r, Liaison* l);
-        const std::map<Routeur*, std::vector<Liaison*>>& getTableRoutage();
+        std::map<Routeur*, std::vector<Liaison*>>& getTableRoutage();
 
         // Methodes
         MAC trouverMacDest(const IPv4 ip);
