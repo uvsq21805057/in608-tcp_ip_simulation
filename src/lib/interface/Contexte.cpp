@@ -18,9 +18,9 @@
 Contexte::Contexte() {
     // Chargement du reseau Simple par defaut
     m_Reseau = nullptr;
-    m_Config.m_Ssthresh = 999;
-    m_Reseau = chargerReseau("../src/include/configReseau/ReseauSimple.json");
-    AffichageReseau::GetInstance().configSimple();
+    m_Config.m_Ssthresh = UINT16_MAX;
+    m_Reseau = chargerReseau("../src/include/configReseau/ReseauEntreprise.json");
+    AffichageReseau::GetInstance().configEntreprise();
     m_Temps = 0;
     m_TabCongestion = new std::vector<ElementControleCongestion>();
     ElementControleCongestion a; a.m_Mode = SlowStart; a.m_Temps=1; a.m_ValeurCwnd = 1;
@@ -114,14 +114,25 @@ int64_t& Contexte::getTemps() {
 }
 
 /**
- * @brief Getter pour recuperer le tableau d'ElementControleCongestion
+ * @brief Getter pour recuperer le vecteur d'ElementControleCongestion
  *
  * Il s'agit de la liste des transferts de paquets lors de la simulation.
  *
- * @return Le tableau d'ElementControleCongestion
+ * @return Le vecteur d'ElementControleCongestion
  **/
 const std::vector<ElementControleCongestion>* Contexte::getTab() const {
     return m_TabCongestion;
+}
+
+/**
+ * @brief Getter pour recuperer la map de temps paquet
+ *
+ * Il s'agit de la liste des temps des envois de paquets
+ *
+ * @return La map de temps paquet
+ **/
+const std::map<uint32_t, double> Contexte::getMap() const {
+    return m_map;
 }
 
 /**
@@ -213,6 +224,8 @@ std::string Contexte::informationsReseau() {
  * @return le texte correspondant a la liste des machines du reseau et leurs informations.
  **/
 void Contexte::chargerConfig(int numConfig) {
+    m_Reseau->remettreIdAZero();
+    m_Reseau.reset();
     if(numConfig == 1) {
         m_Reseau = chargerReseau("../src/include/configReseau/ReseauSimple.json");
         AffichageReseau::GetInstance().configSimple();
@@ -241,6 +254,40 @@ void Contexte::chargerConfig(int numConfig) {
  * @return void
  **/
 void Contexte::executerSimulation() {
+    m_TabCongestion->clear();
+    m_map.clear();
+
+    m_Reseau->lancerOSPF();
+
+    Machine* m = m_Reseau->getMachine(m_Config.m_Source);
+    Ordinateur* pc = dynamic_cast<Ordinateur*>(m);
+
+    //
+    Machine* m2 = m_Reseau->getMachine(m_Config.m_Destination);
+    Ordinateur* pc2 = dynamic_cast<Ordinateur*>(m2);
+
+    //
+    pc->remplirFileDonnees(m_Config, pc2->getMac());
+
+    //
+    std::bitset<16> cwnd = 1;
+    pc->lancerHorloge();
+    pc->slowStart(cwnd, m_Config.m_Ssthresh);
+    pc->arreterHorloge();
+    *m_TabCongestion = pc->getControleCongestion();
+    std::cout << "\n\nAffichage tableau controle congestion : \n";
+    for (auto element : *m_TabCongestion){
+        std::cout << "temps : " << element.m_Temps
+            << ", valeur cwnd " << element.m_ValeurCwnd
+            << " mode : " << element.m_Mode << std::endl;
+    }
+
+    //
+    m_map = m_Reseau->getTempsPaquet();
+    /*for (auto elt : m_map) {
+        std::cout << "numpaquet : " << elt.first
+            << ", temps : " << elt.second << " s\n";
+    }*/
     ConfigReseau::GetInstance().initialiserTexte();
     AffichageReseau::GetInstance().initialiserGraphe();
 }
